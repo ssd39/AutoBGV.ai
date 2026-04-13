@@ -1,4 +1,9 @@
 {$SERVER_DOMAIN} {
+    # ─── Twilio webhooks (voice TwiML, callbacks, WhatsApp) → agent-service ─────
+    handle /twilio/* {
+        reverse_proxy agent-service:8002
+    }
+
     # ─── API routing: rewrite /api/workflow → /api/v1 and proxy to backend ───────
 
     @workflow path /api/workflow/*
@@ -19,18 +24,8 @@
         reverse_proxy verification-service:8003
     }
 
-    # ─── Twilio voice webhooks → agent-service directly ──────────────────────────
-    handle /api/v1/calls/* {
-        reverse_proxy agent-service:8002
-    }
-
-    # ─── Twilio WhatsApp webhooks → agent-service directly ───────────────────────
-    handle /api/v1/whatsapp/* {
-        reverse_proxy agent-service:8002
-    }
-
-    # ─── WebSocket for Deepgram (Twilio media stream) ────────────────────────────
-    handle /ws/* {
+    # ─── Direct /api/v1/* access to agent-service (calls, sessions, whatsapp) ────
+    handle /api/v1/* {
         reverse_proxy agent-service:8002
     }
 
