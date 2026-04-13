@@ -1,0 +1,6 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+orjson==3.10.3
+# Redis pub/sub for publishing verification results to agent service
+redis[hiredis]==5.0.4

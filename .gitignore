@@ -1,0 +1,49 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+services/workflow/.venv/
+services/agent/.venv/
+services/verification/.venv/
+
+# Alembic
+services/*/alembic/versions/*.py
+!services/*/alembic/versions/.gitkeep
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+
+# Deploy scripts & secrets (local-only)
+deploy/

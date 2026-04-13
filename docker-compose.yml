@@ -1,0 +1,114 @@
+version: "3.9"
+
+services:
+  workflow-service:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    container_name: autobgv_workflow_service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-autobgv}:${POSTGRES_PASSWORD:-autobgv_secret}@postgres:5432/${POSTGRES_DB:-autobgv}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      SERVICE_NAME: workflow-service
+      SERVICE_PORT: 8001
+      CORS_ORIGINS: "http://localhost:3000,http://frontend:3000"
+      SESSION_CREATED_QUEUE: ${SESSION_CREATED_QUEUE:-queue:agent:session.created}
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/workflow:/app
+    networks:
+      - autobgv_network
+
+  agent-service:
+    build:
+      context: ./services/agent
+      dockerfile: Dockerfile
+    container_name: autobgv_agent_service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-autobgv}:${POSTGRES_PASSWORD:-autobgv_secret}@postgres:5432/${POSTGRES_DB:-autobgv}
+      # DB 1 — agent session/state storage
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/1
+      # DB 0 — shared queue; MUST match the workflow-service REDIS_URL database number
+      QUEUE_REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      WORKFLOW_SERVICE_URL: http://workflow-service:8001
+      SERVICE_NAME: agent-service
+      SERVICE_PORT: 8002
+      CORS_ORIGINS: "http://localhost:3000,http://frontend:3000"
+      # Public URL Twilio can reach for webhooks/TwiML/WebSocket (set to ngrok in dev)
+      AGENT_SERVICE_BASE_URL: ${AGENT_SERVICE_BASE_URL:-http://localhost:8002}
+      SESSION_CREATED_QUEUE: ${SESSION_CREATED_QUEUE:-queue:agent:session.created}
+      # Twilio credentials (fill in .env)
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/agent:/app
+    networks:
+      - autobgv_network
+
+  verification-service:
+    build:
+      context: ./services/verification
+      dockerfile: Dockerfile
+    container_name: autobgv_verification_service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-autobgv}:${POSTGRES_PASSWORD:-autobgv_secret}@postgres:5432/${POSTGRES_DB:-autobgv}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/2
+      WORKFLOW_SERVICE_URL: http://workflow-service:8001
+      SERVICE_NAME: verification-service
+      SERVICE_PORT: 8003
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/verification:/app
+    networks:
+      - autobgv_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: autobgv_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_WORKFLOW_SERVICE_URL: http://localhost:8001
+      NEXT_PUBLIC_AGENT_SERVICE_URL: http://localhost:8002
+      NEXT_PUBLIC_VERIFICATION_SERVICE_URL: http://localhost:8003
+      NEXT_PUBLIC_CLIENT_ID: client_001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - workflow-service
+    networks:
+      - autobgv_network
+
+networks:
+  autobgv_network:
+    external: true
+    name: autobgv_network

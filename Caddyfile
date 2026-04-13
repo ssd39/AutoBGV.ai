@@ -1,0 +1,41 @@
+{$SERVER_DOMAIN} {
+    # ─── API routing: rewrite /api/workflow → /api/v1 and proxy to backend ───────
+
+    @workflow path /api/workflow/*
+    handle @workflow {
+        uri replace /api/workflow /api/v1 1
+        reverse_proxy workflow-service:8001
+    }
+
+    @agent path /api/agent/*
+    handle @agent {
+        uri replace /api/agent /api/v1 1
+        reverse_proxy agent-service:8002
+    }
+
+    @verify path /api/verify/*
+    handle @verify {
+        uri replace /api/verify /api/v1 1
+        reverse_proxy verification-service:8003
+    }
+
+    # ─── Twilio voice webhooks → agent-service directly ──────────────────────────
+    handle /api/v1/calls/* {
+        reverse_proxy agent-service:8002
+    }
+
+    # ─── Twilio WhatsApp webhooks → agent-service directly ───────────────────────
+    handle /api/v1/whatsapp/* {
+        reverse_proxy agent-service:8002
+    }
+
+    # ─── WebSocket for Deepgram (Twilio media stream) ────────────────────────────
+    handle /ws/* {
+        reverse_proxy agent-service:8002
+    }
+
+    # ─── Everything else → frontend (Next.js) ───────────────────────────────────
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
